@@ -1,0 +1,6 @@
+/target
+/.idea/*
+/.vscode/*
+/coverage/*
+
+.DS_Store

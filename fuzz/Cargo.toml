@@ -1,0 +1,29 @@
+[package]
+name = "zuan-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.zuan]
+path = ".."
+features = ["fuzzing"]
+
+[[bin]]
+name = "iterative_domtree"
+path = "fuzz_targets/iterative_domtree.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "domtree_ext"
+path = "fuzz_targets/domtree_ext.rs"
+test = false
+doc = false
+bench = false

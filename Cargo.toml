@@ -1,0 +1,25 @@
+[package]
+name = "zuan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.hashbrown]
+version = "0.14"
+optional = true
+
+[dependencies.libfuzzer-sys]
+version = "0.4"
+optional = true
+
+[features]
+default = ["core"]
+
+# At least one of `std` and `core` features needs to be enabled.
+std = []
+
+# The `core` feature enables `hashbrown` dependency for hashmaps under `no_std`
+# environment.
+core = ["dep:hashbrown"]
+
+# The `fuzzing` feature enables `libfuzzer-sys` dependency for fuzzing.
+fuzzing = ["dep:libfuzzer-sys"]
