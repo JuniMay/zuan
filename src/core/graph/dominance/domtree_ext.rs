@@ -11,7 +11,7 @@ use core::hash::Hash;
 use core::mem;
 
 use super::{DomTree, Dominance};
-use crate::core::graph::traversal::{Dfs, TraversalIdx};
+use crate::core::graph::traversal::{Dfs, DfsEvent, TraversalIdx};
 use crate::core::graph::{ControlFlowGraph, Graph, Succs};
 use crate::core::utils::Reserved;
 use crate::HashMap;
@@ -168,8 +168,8 @@ where
     }
 }
 
-/// Adapter of dominator trees to compute the dominance frontiers and fast
-/// dominance relation query.
+/// Adapter of dominator trees for fast dominance relation query and graph-like
+/// traversal.
 pub struct DomTreeExt<N> {
     /// Extra information on nodes.
     extra: HashMap<N, DomNodeExt<N>>,
@@ -371,22 +371,23 @@ impl<N> DomTreeExt<N> {
 
         dfs.clear();
 
-        let mut idx = TraversalIdx::zero();
-        let domtree_preorder = dfs.preorder_iter_from(self, [entry]).collect::<Vec<_>>();
+        let mut preorder_idx = TraversalIdx::zero();
+        let mut postorder_idx = TraversalIdx::zero();
 
-        for node in domtree_preorder {
-            self.extra.get_mut(&node).unwrap().domtree_preorder = idx;
-            idx += 1;
-        }
+        let events = dfs.iter_from(self, [entry]).collect::<Vec<_>>();
 
-        dfs.clear();
-
-        let mut idx = TraversalIdx::zero();
-        let domtree_postorder = dfs.postorder_iter_from(self, [entry]).collect::<Vec<_>>();
-
-        for node in domtree_postorder {
-            self.extra.get_mut(&node).unwrap().domtree_postorder = idx;
-            idx += 1;
+        for (event, node, first_visit) in events {
+            match (event, first_visit) {
+                (DfsEvent::Enter, true) => {
+                    self.extra.get_mut(&node).unwrap().domtree_preorder = preorder_idx;
+                    preorder_idx += 1;
+                }
+                (DfsEvent::Leave, _) => {
+                    self.extra.get_mut(&node).unwrap().domtree_postorder = postorder_idx;
+                    postorder_idx += 1;
+                }
+                (DfsEvent::Enter, false) => {}
+            }
         }
     }
 

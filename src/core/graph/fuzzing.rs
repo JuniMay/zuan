@@ -11,7 +11,7 @@ use crate::HashSet;
 
 /// Generate an arbitrary [`TestCFG`] for fuzzing.
 pub fn arbitrary_cfg(u: &mut Unstructured) -> arbitrary::Result<TestCFG> {
-    let num_nodes = u.int_in_range(0..=4095)?;
+    let num_nodes = u.int_in_range(0..=1024)?;
     let entry = 0;
 
     let mut edges = Vec::new();
@@ -63,46 +63,42 @@ where
         assert!(domtree.is_reachable(node));
 
         let mut dominators = HashSet::new();
+        // The node dominates itself.
         dominators.insert(node);
 
         let mut idom = domtree.immediate_dominator(node);
         while let Some(d) = idom {
+            // The dominator must have been visited before this node.
             assert!(visited.contains(&d));
             assert!(!dominators.contains(&d));
             dominators.insert(d);
+            // Climb up the dominator tree.
             idom = domtree.immediate_dominator(d);
         }
 
-        for maybe_dominator in 0..graph.num_nodes() {
+        for dom in 0..graph.num_nodes() {
             assert_eq!(
-                dominators.contains(&maybe_dominator),
+                dominators.contains(&dom),
                 domtree
-                    .dominance(maybe_dominator, node)
+                    .dominance(dom, node)
                     // Testing the correctness of boolean conversion
                     .map(bool::from)
                     .unwrap_or(false)
             );
             // More detailed check
-            if maybe_dominator == node {
-                assert!(dominators.contains(&maybe_dominator));
-                assert!(domtree.is_reachable(maybe_dominator));
-                assert_eq!(
-                    domtree.dominance(maybe_dominator, node),
-                    Some(Dominance::Identical)
-                );
-            } else if dominators.contains(&maybe_dominator) {
-                assert!(domtree.is_reachable(maybe_dominator));
-                assert_eq!(
-                    domtree.dominance(maybe_dominator, node),
-                    Some(Dominance::Strict)
-                );
-            } else if domtree.is_reachable(maybe_dominator) {
-                assert_eq!(
-                    domtree.dominance(maybe_dominator, node),
-                    Some(Dominance::None)
-                );
+            if dom == node {
+                assert!(dominators.contains(&dom));
+                assert!(domtree.is_reachable(dom));
+                assert_eq!(domtree.dominance(dom, node), Some(Dominance::Identical));
+            } else if dominators.contains(&dom) {
+                // Not identical nodes, it must be strict dominance.
+                assert!(domtree.is_reachable(dom));
+                assert_eq!(domtree.dominance(dom, node), Some(Dominance::Strict));
+            } else if domtree.is_reachable(dom) {
+                // For reachable nodes, the `dominance` should always return `Some`.
+                assert_eq!(domtree.dominance(dom, node), Some(Dominance::None));
             } else {
-                assert_eq!(domtree.dominance(maybe_dominator, node), None);
+                assert_eq!(domtree.dominance(dom, node), None);
             }
         }
 
@@ -117,10 +113,18 @@ where
 {
     let mut domtree_ext = DomTreeExt::default();
     let mut df = DominanceFrontierInfo::default();
+
     domtree_ext.compute(domtree, postorder);
     df.compute(graph, domtree, postorder);
 
-    for &node in postorder {
+    // Check the consistency of fast dominance query.
+    for a in 0..graph.num_nodes() {
+        for b in 0..graph.num_nodes() {
+            assert_eq!(domtree_ext.dominance(a, b), domtree.dominance(a, b));
+        }
+    }
+
+    for node in 0..graph.num_nodes() {
         // Check the dominance frontier by definition.
         for &frontier_node in df.frontier(node) {
             assert_ne!(
@@ -146,7 +150,7 @@ where
             assert_eq!(domtree.immediate_dominator(child), Some(node));
             let node_depth = domtree_ext.depth(node).unwrap();
             let child_depth = domtree_ext.depth(child).unwrap();
-            assert!(node_depth < child_depth);
+            assert_eq!(node_depth + 1, child_depth);
         }
     }
 }

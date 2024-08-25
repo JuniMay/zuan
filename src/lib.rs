@@ -3,6 +3,7 @@
 #![deny(missing_docs)]
 #![no_std]
 #![forbid(unsafe_code)]
+#![warn(clippy::wildcard_enum_match_arm)]
 
 #[allow(unused_imports)]
 #[macro_use]
